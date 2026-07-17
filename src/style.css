@@ -1,0 +1,103 @@
+:root {
+  --subtitle-bg: rgba(0, 0, 0, 0.6);
+  --accent: #7c6fff;
+  --text: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans TC",
+    sans-serif;
+  color: var(--text);
+}
+
+/* ── Background video ── */
+#bg-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+/* ── Presenter (bottom-right) ── */
+#presenter {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 360px;
+  height: 480px;
+  z-index: 2;
+}
+
+/* ── Subtitles (bottom-center) ── */
+.subtitles {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 70vw;
+  padding: 12px 24px;
+  background: var(--subtitle-bg);
+  border-radius: 10px;
+  font-size: clamp(20px, 3vw, 34px);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.subtitles.visible {
+  opacity: 1;
+}
+
+/* ── HUD ── */
+.hud {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 4;
+}
+
+.start-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.start-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.status {
+  font-size: 14px;
+  color: #d0d0e0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}

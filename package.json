@@ -1,0 +1,26 @@
+{
+  "name": "imuh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Live-broadcast web app with a Perxona <sv-presenter> virtual anchor: background video, continuous mic → speech-to-text → avatar speech, and bottom-center subtitles.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node --watch server/server.mjs",
+    "dev:web": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "NODE_ENV=production node server/server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "hls.js": "^1.5.20"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "vite": "^6.0.7"
+  }
+}
