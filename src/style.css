@@ -154,6 +154,11 @@ body {
   cursor: default;
 }
 
+/* Push-to-talk button while actively recording (held down). */
+#ptt-btn.is-recording {
+  background: #e5484d;
+}
+
 .status {
   font-size: 14px;
   color: #d0d0e0;

@@ -2,7 +2,7 @@
  * Imuh — orchestrator.
  *
  * Boots the live-broadcast experience: background video, the <sv-presenter>
- * virtual anchor, continuous mic → STT → avatar speech, and bottom-center
+ * virtual anchor, push-to-talk mic → STT → avatar speech, and bottom-center
  * subtitles driven by the presenter's PLAYING_SPEECH_TEXT event.
  *
  * The heavy wiring (initialize handshake, mic pipeline) is finished in the
@@ -25,6 +25,7 @@ const els = {
   presenter: document.getElementById("presenter"),
   subtitles: document.getElementById("subtitles"),
   startBtn: document.getElementById("start-btn"),
+  pttBtn: document.getElementById("ptt-btn"),
   status: document.getElementById("status"),
 };
 
@@ -108,16 +109,61 @@ els.startBtn.addEventListener("click", async () => {
     });
     stt.onPartial((text) => setStatus(`聆聽中… ${text}`));
     stt.onFinal(async (text) => {
-      setStatus(`辨識完成，傳送給主播：「${text}」`);
+      setStatus(`辨識完成，插話給主播：「${text}」`);
+      // Barge-in: cut off whatever the avatar is currently saying (if
+      // anything) so the newest recognized sentence always takes priority,
+      // instead of queuing behind it — present() would otherwise play calls
+      // strictly in call order.
+      presenter.interrupt();
       const result = await presenter.present(text);
       if (!result?.success) {
         setStatus(`主播播放失敗 (${result?.code})：${result?.message ?? ""}`);
       }
     });
     stt.onError((err) => setStatus(`STT 錯誤：${err.message}`));
-    await stt.start();
 
-    setStatus("✓ 直播中");
+    // Push-to-talk: hold the button to record, release to stop and send
+    // whatever was recognized to the avatar. Replaces continuous
+    // always-listening capture — the mic only opens while the button is
+    // held, so there's no need to guess when a sentence ended.
+    let isRecording = false;
+    const setRecordingUi = (recording) => {
+      isRecording = recording;
+      els.pttBtn.classList.toggle("is-recording", recording);
+      els.pttBtn.textContent = recording ? "🔴 放開結束" : "🎙 按住說話";
+    };
+    const beginTurn = async () => {
+      if (isRecording) return;
+      setRecordingUi(true);
+      try {
+        await stt.start();
+        setStatus("錄音中…放開按鈕結束");
+      } catch (err) {
+        setRecordingUi(false);
+        setStatus(`麥克風錯誤：${err.message}`);
+      }
+    };
+    const endTurn = async () => {
+      if (!isRecording) return;
+      setRecordingUi(false);
+      setStatus("辨識中…");
+      await stt.stop();
+    };
+    els.pttBtn.hidden = false;
+    els.pttBtn.addEventListener("mousedown", beginTurn);
+    els.pttBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      beginTurn();
+    });
+    els.pttBtn.addEventListener("mouseup", endTurn);
+    els.pttBtn.addEventListener("mouseleave", endTurn);
+    els.pttBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      endTurn();
+    });
+    els.pttBtn.addEventListener("touchcancel", endTurn);
+
+    setStatus("✓ 直播中 — 按住麥克風按鈕說話");
   } catch (err) {
     console.error(err);
     setStatus(`錯誤：${err.message}`);

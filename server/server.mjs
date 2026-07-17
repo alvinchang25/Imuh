@@ -408,9 +408,32 @@ sttWebSocketServer.on("connection", (socket) => {
 
   startRecognizing();
 
-  socket.on("message", (audio, isBinary) => {
-    if (isBinary && recognizeStream && recognizeStreamWritable) {
-      recognizeStream.write(audio);
+  socket.on("message", (payload, isBinary) => {
+    if (isBinary) {
+      if (recognizeStream && recognizeStreamWritable) {
+        recognizeStream.write(payload);
+      }
+      return;
+    }
+
+    // Non-binary messages are JSON control signals from the client — used
+    // for push-to-talk: "stop" means the user released the button, so no
+    // more audio is coming for this utterance. Finalize the in-flight
+    // recognizeStream now (rather than waiting for Google's own silence
+    // timeout) and don't restart afterward — the client opens a fresh
+    // connection for its next press.
+    let message;
+    try {
+      message = JSON.parse(payload.toString());
+    } catch {
+      return;
+    }
+    if (message?.type === "stop") {
+      shouldRestart = false;
+      if (recognizeStream && recognizeStreamWritable) {
+        recognizeStreamWritable = false;
+        recognizeStream.end();
+      }
     }
   });
 

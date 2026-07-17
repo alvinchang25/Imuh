@@ -10,7 +10,9 @@
  * @typedef {Object} SpeechToTextEngine
  * @property {() => Promise<void>} start   Begin capturing + transcribing. Must be
  *   called from a user gesture (mic permission / autoplay).
- * @property {() => void} stop             Stop capturing and release the mic.
+ * @property {() => void | Promise<void>} stop  Stop capturing and release the
+ *   mic. May be async — e.g. push-to-talk adapters can await a final
+ *   transcript from an in-flight utterance before tearing down.
  * @property {(cb: (text: string) => void) => void} onPartial  Interim (non-final)
  *   transcript updates, if the adapter supports them. Optional to emit.
  * @property {(cb: (text: string) => void) => void} onFinal    A finalized
