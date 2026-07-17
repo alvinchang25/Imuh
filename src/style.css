@@ -34,14 +34,58 @@ body {
   z-index: 0;
 }
 
-/* ── Presenter (bottom-right) ── */
-#presenter {
+/* ── Avatar dialog (bottom-right, draggable) ── */
+.avatar-dialog {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 360px;
-  height: 480px;
+  inset: auto 24px 24px auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(14, 14, 26, 0.85);
+  color: var(--text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   z-index: 2;
+}
+
+.avatar-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.avatar-dialog-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.dialog-close {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dialog-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.avatar-dialog #presenter {
+  display: block;
+  /* Portrait 9:16, capped so the dialog (incl. title bar) fits on screen. */
+  height: min(640px, 78vh);
+  aspect-ratio: 9 / 16;
 }
 
 /* ── Subtitles (bottom-center) ── */
