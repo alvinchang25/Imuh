@@ -127,14 +127,14 @@ that completes each module body.
 | # | ID | Milestone | Status |
 | - | -- | --------- | ------ |
 | 1 | `scaffold` | Vite vanilla project + backend structure in the Imuh repo. | ✅ done |
-| 2 | `backend` | Port express sample, add `/api/stt`, extend `/api/config`, env/.env.example. | ⬜ pending |
-| 3 | `video-bg` | Full-screen video background module (mp4 + HLS). | ⬜ pending |
-| 4 | `presenter` | Presenter wrapper: load engine, initialize, present, events. | ⬜ pending |
-| 5 | `stt` | STT interface + cloud adapter + mock adapter. | ⬜ pending |
-| 6 | `subtitles` | Subtitle overlay from `PLAYING_SPEECH_TEXT`. | ⬜ pending |
-| 7 | `orchestrator` | main.js orchestrator + Start gesture + HUD + layout CSS. | ⬜ pending |
-| 8 | `e2e-docs` | Wire end-to-end, docs, manual test pass. | ⬜ pending |
+| 2 | `backend` | Port express sample, add `/api/stt`, extend `/api/config`, env/.env.example. | ✅ done |
+| 3 | `video-bg` | Full-screen video background module (mp4 + HLS + YouTube). | ⏳ partial — mp4 works; HLS & YouTube embed pending |
+| 4 | `presenter` | Presenter wrapper: load engine, initialize, present, events. | ✅ done |
+| 5 | `stt` | STT interface + cloud adapter + mock adapter. | ⏳ partial — interface & mock done; cloud adapter stub (no mic capture yet) |
+| 6 | `subtitles` | Subtitle overlay from `PLAYING_SPEECH_TEXT`. | ✅ done |
+| 7 | `orchestrator` | main.js orchestrator + Start gesture + HUD + layout CSS. | ✅ done |
+| 8 | `e2e-docs` | Wire end-to-end, docs, manual test pass. | ⏳ in progress — 404 bug (empty avatar ID) found during first test |
 
-> Note: the scaffold already lays down runnable versions of the backend, config, subtitles,
-> presenter wrapper, and mock STT; the milestones above harden each module (real mic capture,
-> HLS, event edge-cases) and complete the end-to-end pass.
+> **Remaining work:** (a) implement real mic → cloud STT in `cloudSttAdapter.js`, (b) add
+> YouTube IFrame Player API support to `videoBackground.js`, (c) set `DEFAULT_AVATAR_ID` in
+> `.env` to fix the 404, (d) final E2E validation.
