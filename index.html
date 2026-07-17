@@ -10,8 +10,14 @@
     <!-- Full-screen background broadcast video (muted, looping) -->
     <video id="bg-video" playsinline muted loop></video>
 
-    <!-- Virtual anchor, docked bottom-right -->
-    <sv-presenter id="presenter" hidden></sv-presenter>
+    <!-- Virtual anchor in a draggable non-modal dialog, docked bottom-right -->
+    <dialog id="avatar-dialog" class="avatar-dialog">
+      <div id="avatar-dialog-bar" class="avatar-dialog-bar">
+        <span>虛擬主播</span>
+        <button id="avatar-dialog-close" class="dialog-close" aria-label="關閉主播視窗">✕</button>
+      </div>
+      <sv-presenter id="presenter"></sv-presenter>
+    </dialog>
 
     <!-- Subtitles, bottom-center -->
     <div id="subtitles" class="subtitles" aria-live="polite"></div>
@@ -19,6 +25,7 @@
     <!-- HUD: start gesture + status -->
     <div id="hud" class="hud">
       <button id="start-btn" class="start-btn">▶ 開始直播</button>
+      <button id="avatar-toggle" class="start-btn" hidden>👤 主播視窗</button>
       <span id="status" class="status"></span>
     </div>
 

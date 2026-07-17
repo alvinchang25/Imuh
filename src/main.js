@@ -18,6 +18,7 @@ import {
 } from "./presenter.js";
 import { createSubtitles } from "./subtitles.js";
 import { createSttEngine } from "./stt/SpeechToTextEngine.js";
+import { createAvatarDialog } from "./avatarDialog.js";
 
 const els = {
   video: document.getElementById("bg-video"),
@@ -26,6 +27,13 @@ const els = {
   startBtn: document.getElementById("start-btn"),
   status: document.getElementById("status"),
 };
+
+const avatarDialog = createAvatarDialog({
+  dialog: document.getElementById("avatar-dialog"),
+  bar: document.getElementById("avatar-dialog-bar"),
+  closeBtn: document.getElementById("avatar-dialog-close"),
+  toggleBtn: document.getElementById("avatar-toggle"),
+});
 
 const setStatus = (t) => {
   els.status.textContent = t;
@@ -51,7 +59,7 @@ els.startBtn.addEventListener("click", async () => {
     presenter.on("PLAYING_SPEECH_TEXT", ({ text }) => subtitles.show(text));
     presenter.on("PRESENTER_STATUS", ({ status }) => {
       setStatus(status === "Ready" ? "✓ 直播中" : status);
-      if (status === "Ready") els.presenter.hidden = false;
+      if (status === "Ready") avatarDialog.open();
     });
 
     setStatus("解鎖音訊…");
