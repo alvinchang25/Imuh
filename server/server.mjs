@@ -319,21 +319,39 @@ const sttWebSocketServer = new WebSocketServer({
 });
 
 sttWebSocketServer.on("connection", (socket) => {
+  console.log("[stt-stream] connection opened");
   let recognizeStream = null;
+  // Tracks whether `recognizeStream` is still safe to `.write()` to. Node's
+  // stream `.destroyed` flag doesn't flip to true synchronously after
+  // `.end()` — writing in that window throws "write after end" and silently
+  // drops audio, which is what caused transcripts to stop reaching the
+  // avatar. This flag flips the instant `.end()` is requested, before
+  // `.destroyed` catches up.
+  let recognizeStreamWritable = false;
   let shouldRestart = true;
+  // TODO(debug): remove once the "recognition gets stuck" reports stop.
+  let generation = 0;
 
   function startRecognizing() {
+    const gen = ++generation;
+    console.log(`[stt-stream] #${gen} starting Google stream`);
     // Guards against 'error' and 'end' both firing for the same underlying
     // stream instance, which would otherwise start two replacement streams
     // at once.
     let restarted = false;
-    function restartOnce() {
+    function restartOnce(reason) {
       if (restarted) return;
       restarted = true;
+      console.log(
+        `[stt-stream] #${gen} ended (${reason}), shouldRestart=${shouldRestart}, socket.readyState=${socket.readyState}`,
+      );
       // Only clear the shared reference if it still points at THIS stream —
       // a newer stream may already have replaced it by the time a stale
       // event from this one fires (see the `stream` const below).
-      if (recognizeStream === stream) recognizeStream = null;
+      if (recognizeStream === stream) {
+        recognizeStream = null;
+        recognizeStreamWritable = false;
+      }
       if (shouldRestart && socket.readyState === 1) startRecognizing();
     }
 
@@ -357,6 +375,9 @@ sttWebSocketServer.on("connection", (socket) => {
       .on("data", (data) => {
         const result = data.results?.[0];
         const transcript = result?.alternatives?.[0]?.transcript?.trim();
+        console.log(
+          `[stt-stream] #${gen} data isFinal=${Boolean(result?.isFinal)} transcript=${JSON.stringify(transcript ?? "")}`,
+        );
         if (transcript && socket.readyState === 1) {
           socket.send(
             JSON.stringify({
@@ -370,29 +391,34 @@ sttWebSocketServer.on("connection", (socket) => {
         // empty final when it detects end-of-speech with nothing usable) so
         // the next utterance starts promptly instead of waiting for the
         // stream to time out on its own.
-        if (result?.isFinal && !stream.destroyed) {
+        if (result?.isFinal && recognizeStream === stream) {
+          recognizeStreamWritable = false;
           stream.end();
         }
       })
       .on("error", (err) => {
-        console.error(`[stt-stream] Google stream error: ${err.message}`);
-        restartOnce();
+        console.error(`[stt-stream] #${gen} error: ${err.message}`);
+        restartOnce("error");
       })
-      .on("end", restartOnce);
+      .on("end", () => restartOnce("end"));
 
     recognizeStream = stream;
+    recognizeStreamWritable = true;
   }
 
   startRecognizing();
 
   socket.on("message", (audio, isBinary) => {
-    if (isBinary && recognizeStream && !recognizeStream.destroyed) {
+    if (isBinary && recognizeStream && recognizeStreamWritable) {
       recognizeStream.write(audio);
     }
   });
 
   socket.on("close", () => {
     shouldRestart = false;
-    if (recognizeStream && !recognizeStream.destroyed) recognizeStream.end();
+    if (recognizeStream && recognizeStreamWritable) {
+      recognizeStreamWritable = false;
+      recognizeStream.end();
+    }
   });
 });

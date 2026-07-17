@@ -44,6 +44,16 @@ const subtitles = createSubtitles(els.subtitles);
 
 // Background video can start immediately (muted autoplay is allowed).
 await startBackgroundVideo(els.video, cfg.broadcastVideoUrl);
+
+// Load the presenter engine script now (page load), NOT inside the Start
+// click handler — the custom element must already be upgraded and its
+// methods available *before* the click fires. resumeAudioPlayback() below
+// needs to run essentially synchronously within the click's user-gesture
+// window; awaiting a network fetch first (loading this script) would burn
+// through that window and leave the browser's autoplay policy still
+// blocking the AudioContext, which later surfaces as present() failing with
+// AUDIO_CONTEXT_UNAVAILABLE.
+await loadPresenterEngine(cfg.presenterUrl);
 setStatus("點擊「開始直播」啟動主播與收音");
 
 // The Start button is the required user gesture: it unlocks audio, initializes
@@ -51,8 +61,6 @@ setStatus("點擊「開始直播」啟動主播與收音");
 els.startBtn.addEventListener("click", async () => {
   els.startBtn.disabled = true;
   try {
-    setStatus("載入主播引擎…");
-    await loadPresenterEngine(cfg.presenterUrl);
     const presenter = createPresenter(els.presenter);
 
     // Subtitles follow whatever the avatar is currently speaking.
@@ -69,9 +77,13 @@ els.startBtn.addEventListener("click", async () => {
     let isPresenterSpeaking = false;
     presenter.on("PERFORMANCE_START", () => {
       isPresenterSpeaking = true;
+      console.log("[stt-debug] PERFORMANCE_START -> isPresenterSpeaking=true");
     });
     presenter.on("ALL_PERFORMANCE_FINISHED", () => {
       isPresenterSpeaking = false;
+      console.log(
+        "[stt-debug] ALL_PERFORMANCE_FINISHED -> isPresenterSpeaking=false",
+      );
     });
 
     setStatus("解鎖音訊…");
@@ -94,7 +106,14 @@ els.startBtn.addEventListener("click", async () => {
       provider: cfg.stt.provider,
       isSpeaking: () => isPresenterSpeaking,
     });
-    stt.onFinal((text) => presenter.present(text));
+    stt.onPartial((text) => setStatus(`聆聽中… ${text}`));
+    stt.onFinal(async (text) => {
+      setStatus(`辨識完成，傳送給主播：「${text}」`);
+      const result = await presenter.present(text);
+      if (!result?.success) {
+        setStatus(`主播播放失敗 (${result?.code})：${result?.message ?? ""}`);
+      }
+    });
     stt.onError((err) => setStatus(`STT 錯誤：${err.message}`));
     await stt.start();
 
