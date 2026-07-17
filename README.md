@@ -11,6 +11,8 @@ A web page that simulates a live broadcast. A Perxona `<sv-presenter>` virtual h
 Built with **Vanilla JS + Vite** (frontend) and a thin **Express** backend that mints the
 Perxona Connect token, proxies the catalog, and forwards audio to a cloud STT provider.
 
+> Full design rationale, data flow, risks, and milestones: [`docs/PLAN.md`](docs/PLAN.md).
+
 ---
 
 ## Architecture
