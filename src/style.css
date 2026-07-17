@@ -34,6 +34,20 @@ body {
   z-index: 0;
 }
 
+/* YouTube iframe background: 16:9 sized to cover the viewport, centered, and
+   click-through so it behaves like a plain video layer. */
+.bg-embed {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100vw, calc(100vh * 16 / 9));
+  height: max(100vh, calc(100vw * 9 / 16));
+  border: none;
+  z-index: 0;
+  pointer-events: none;
+}
+
 /* ── Avatar dialog (bottom-right, draggable) ── */
 .avatar-dialog {
   position: fixed;
