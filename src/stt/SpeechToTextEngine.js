@@ -2,8 +2,8 @@
  * SpeechToTextEngine — the swappable STT interface.
  *
  * The product does NOT implement speech recognition itself; it depends only on
- * this contract. Any adapter (cloud Whisper, Web Speech API, a streaming
- * WebSocket provider, or a mock) can satisfy it without the rest of the app
+ * this contract. Any adapter (cloud Whisper, Google Cloud Speech streaming,
+ * the Web Speech API, or a mock) can satisfy it without the rest of the app
  * changing. Adapters live alongside this file and are selected by
  * `createSttEngine(config)`.
  *
@@ -30,6 +30,10 @@ export async function createSttEngine(config = {}) {
     case "mock": {
       const { createMockSttEngine } = await import("./mockSttAdapter.js");
       return createMockSttEngine(config);
+    }
+    case "google": {
+      const { createGoogleSttEngine } = await import("./googleSttAdapter.js");
+      return createGoogleSttEngine(config);
     }
     case "openai":
     default: {

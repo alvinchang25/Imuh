@@ -54,6 +54,18 @@ els.startBtn.addEventListener("click", async () => {
       if (status === "Ready") els.presenter.hidden = false;
     });
 
+    // Tracks whether the avatar is currently speaking so the google STT
+    // adapter can send silence instead of mic audio during playback (see
+    // googleSttAdapter.js) — irrelevant for the other adapters, which ignore
+    // the isSpeaking option.
+    let isPresenterSpeaking = false;
+    presenter.on("PERFORMANCE_START", () => {
+      isPresenterSpeaking = true;
+    });
+    presenter.on("ALL_PERFORMANCE_FINISHED", () => {
+      isPresenterSpeaking = false;
+    });
+
     setStatus("解鎖音訊…");
     await presenter.resumeAudioPlayback();
 
@@ -70,7 +82,10 @@ els.startBtn.addEventListener("click", async () => {
 
     // Mic → STT → avatar. STT is swappable behind the interface; the transcript
     // is passed straight to present() (direct pass-through, no LLM).
-    const stt = await createSttEngine({ provider: cfg.stt.provider });
+    const stt = await createSttEngine({
+      provider: cfg.stt.provider,
+      isSpeaking: () => isPresenterSpeaking,
+    });
     stt.onFinal((text) => presenter.present(text));
     stt.onError((err) => setStatus(`STT 錯誤：${err.message}`));
     await stt.start();

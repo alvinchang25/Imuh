@@ -1,6 +1,8 @@
 import express from "express";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import speech from "@google-cloud/speech";
+import { WebSocketServer } from "ws";
 
 // Load .env into process.env (Node >=20.12). Non-fatal if the file is missing —
 // values may come from the real environment instead.
@@ -30,6 +32,11 @@ const STT_API_KEY = process.env.STT_API_KEY || "";
 const STT_BASE_URL = process.env.STT_BASE_URL || "https://api.openai.com/v1";
 const STT_MODEL = process.env.STT_MODEL || "whisper-1";
 const STT_LANGUAGE = process.env.STT_LANGUAGE || "";
+// Google Cloud Speech-to-Text streaming (STT_PROVIDER=google) authenticates via
+// Application Default Credentials (`gcloud auth application-default login`) —
+// no API key in .env, unlike the openai/whisper adapter.
+const GOOGLE_STT_LANGUAGE = STT_LANGUAGE || "zh-TW";
+const speechClient = new speech.SpeechClient();
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -223,7 +230,13 @@ app.get("/api/config", (_req, res) => {
       sceneId: DEFAULT_SCENE_ID,
       voiceId: DEFAULT_VOICE_ID,
     },
-    stt: { provider: STT_PROVIDER, enabled: STT_PROVIDER === "mock" || Boolean(STT_API_KEY) },
+    stt: {
+      provider: STT_PROVIDER,
+      enabled:
+        STT_PROVIDER === "mock" ||
+        STT_PROVIDER === "google" ||
+        Boolean(STT_API_KEY),
+    },
   });
 });
 
@@ -282,10 +295,104 @@ if (!IS_DEV) {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\nImuh — live broadcast avatar`);
   console.log(`  API    : http://localhost:${PORT}`);
   console.log(`  Mode   : ${IS_DEV ? "dev (Vite serves the UI)" : "production (serving dist/)"}`);
-  console.log(`  STT    : ${STT_PROVIDER}${STT_PROVIDER !== "mock" && !STT_API_KEY ? " (no key — /api/stt returns 501)" : ""}`);
+  console.log(`  STT    : ${STT_PROVIDER}${STT_PROVIDER !== "mock" && STT_PROVIDER !== "google" && !STT_API_KEY ? " (no key — /api/stt returns 501)" : ""}`);
   console.log(`  Video  : ${BROADCAST_VIDEO_URL || "(BROADCAST_VIDEO_URL not set)"}`);
+});
+
+// ── Google STT streaming (STT_PROVIDER=google) ────────────────────────────────
+//
+// WS /api/stt-stream — the browser opens one socket per "start listening"
+// session and streams raw 16kHz mono PCM frames continuously (including
+// silence while the avatar is talking, so the connection survives that gap —
+// see googleSttAdapter.js). Each connection is its own independent Google
+// streamingRecognize session, restarted transparently under the hood every
+// time Google closes it (either because `singleUtterance` detected
+// end-of-speech, or the ~5s audio-timeout/~5min max-duration limits were
+// hit) — none of that is fatal to the browser's WebSocket.
+const sttWebSocketServer = new WebSocketServer({
+  server,
+  path: "/api/stt-stream",
+});
+
+sttWebSocketServer.on("connection", (socket) => {
+  let recognizeStream = null;
+  let shouldRestart = true;
+
+  function startRecognizing() {
+    // Guards against 'error' and 'end' both firing for the same underlying
+    // stream instance, which would otherwise start two replacement streams
+    // at once.
+    let restarted = false;
+    function restartOnce() {
+      if (restarted) return;
+      restarted = true;
+      // Only clear the shared reference if it still points at THIS stream —
+      // a newer stream may already have replaced it by the time a stale
+      // event from this one fires (see the `stream` const below).
+      if (recognizeStream === stream) recognizeStream = null;
+      if (shouldRestart && socket.readyState === 1) startRecognizing();
+    }
+
+    // Bind listeners to this call's own `stream` constant, not the shared
+    // outer `recognizeStream` variable. Once restarted, the outer variable is
+    // reassigned to a brand-new stream for the next utterance — a late
+    // 'data'/'error'/'end' event arriving from THIS (already-finished) stream
+    // must only ever act on itself, never reach through the outer variable
+    // and cut off the new stream already listening for the next sentence.
+    const stream = speechClient
+      .streamingRecognize({
+        config: {
+          encoding: "LINEAR16",
+          sampleRateHertz: 16000,
+          languageCode: GOOGLE_STT_LANGUAGE,
+          enableAutomaticPunctuation: true,
+        },
+        interimResults: true,
+        singleUtterance: true,
+      })
+      .on("data", (data) => {
+        const result = data.results?.[0];
+        const transcript = result?.alternatives?.[0]?.transcript?.trim();
+        if (transcript && socket.readyState === 1) {
+          socket.send(
+            JSON.stringify({
+              type: "transcript",
+              transcript,
+              final: Boolean(result.isFinal),
+            }),
+          );
+        }
+        // End on isFinal regardless of transcript content (Google can send an
+        // empty final when it detects end-of-speech with nothing usable) so
+        // the next utterance starts promptly instead of waiting for the
+        // stream to time out on its own.
+        if (result?.isFinal && !stream.destroyed) {
+          stream.end();
+        }
+      })
+      .on("error", (err) => {
+        console.error(`[stt-stream] Google stream error: ${err.message}`);
+        restartOnce();
+      })
+      .on("end", restartOnce);
+
+    recognizeStream = stream;
+  }
+
+  startRecognizing();
+
+  socket.on("message", (audio, isBinary) => {
+    if (isBinary && recognizeStream && !recognizeStream.destroyed) {
+      recognizeStream.write(audio);
+    }
+  });
+
+  socket.on("close", () => {
+    shouldRestart = false;
+    if (recognizeStream && !recognizeStream.destroyed) recognizeStream.end();
+  });
 });
