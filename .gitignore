@@ -9,6 +9,11 @@ dist/
 .env.local
 .env.*.local
 
+# Google Cloud service account keys — never commit real credentials
+.secrets/
+.secrets.zip
+*.key.json
+
 # Logs
 *.log
 npm-debug.log*
